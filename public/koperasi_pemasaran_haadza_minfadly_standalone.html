@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Koperasi Pemasaran Haadza Minfadly Rabbi - Marketplace & Operasional MBG</title>
+  <meta name="description" content="Platform marketplace pemesanan bahan pokok dapur MBG, manajemen stok real-time, pencatatan kas, dan laporan keuangan koperasi otomatis.">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- React & Babel Standalone for direct browser execution -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    }
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+    @media print {
+      .print\:hidden { display: none !important; }
+      .print\:block { display: block !important; }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-900 antialiased selection:bg-emerald-200">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    // Formatters
+    const formatRupiah = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val || 0);
+    const formatDate = (str) => {
+      try { return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(str)); } catch { return str; }
+    };
+
+    // Initial Data
+    const INITIAL_PRODUCTS = [
+      { id: 'prod-1', name: 'Beras Ramos Super Premium Cianjur', category: 'karbohidrat', unit: 'kg', sellingPrice: 15000, purchasePrice: 12800, supplierName: 'Gapoktan Makmur Subang Sejahtera', supplierLocation: 'Subang, Jawa Barat', currentStock: 350, minStockThreshold: 500, image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&auto=format&fit=crop&q=80', description: 'Beras putih pulen derajat sosoh 95%, kadar air <14%, bebas pemutih dan pengawet buatan.', gradeGizi: 'Grade A Standar MBG' },
+      { id: 'prod-2', name: 'Dada Ayam Fillet Segar MBG (Cold Chain)', category: 'unggas_daging', unit: 'kg', sellingPrice: 38500, purchasePrice: 32000, supplierName: 'Peternakan Unggas Berkah Parung', supplierLocation: 'Parung, Bogor', currentStock: 65, minStockThreshold: 100, image: 'https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=600&auto=format&fit=crop&q=80', description: 'Dada ayam segar higienis tanpa kulit dan tulang, dipotong halal, rantai dingin 2-4°C.', gradeGizi: 'Standar NKV & Halal' },
+      { id: 'prod-3', name: 'Sayur Wortel & Bayam Segar Panen H-1', category: 'sayur_buah', unit: 'kg', sellingPrice: 12500, purchasePrice: 9500, supplierName: 'Kelompok Tani Tani Mukti Lembang', supplierLocation: 'Lembang, Bandung Barat', currentStock: 40, minStockThreshold: 80, image: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=600&auto=format&fit=crop&q=80', description: 'Wortel manis dan bayam segar panen langsung petani mitra. Bebas pestisida berlebih.', gradeGizi: 'Sayur Segar Grade 1' },
+      { id: 'prod-4', name: 'Telur Ayam Ras Segar Grade A', category: 'telur_susu', unit: 'tray (30 btr)', sellingPrice: 54000, purchasePrice: 46000, supplierName: 'Peternakan Layer Unggul Blitar Farm', supplierLocation: 'Blitar / Mitra Jabodetabek', currentStock: 180, minStockThreshold: 120, image: 'https://images.unsplash.com/photo-1506976785307-8732e854ad03?w=600&auto=format&fit=crop&q=80', description: 'Telur ayam ras segar dengan cangkang tebal bersih, kuning telur pekat tinggi lutein.', gradeGizi: 'Telur Segar Grade A' },
+      { id: 'prod-5', name: 'Ikan Kembung Segar Banjar Tangkapan Lokal', category: 'ikan_seafood', unit: 'kg', sellingPrice: 34000, purchasePrice: 28000, supplierName: 'Koperasi Nelayan Mina Bahari Jaya', supplierLocation: 'Muara Baru, Pesisir Utara', currentStock: 95, minStockThreshold: 90, image: 'https://images.unsplash.com/photo-1534948216015-843149f72be3?w=600&auto=format&fit=crop&q=80', description: 'Ikan kembung segar tinggi Omega-3 dan DHA alami untuk menu kecerdasan siswa.', gradeGizi: 'Rantai Dingin MBG' },
+      { id: 'prod-6', name: 'Susu Segar Pasteurisasi MBG', category: 'telur_susu', unit: 'liter', sellingPrice: 18000, purchasePrice: 14500, supplierName: 'Koperasi Peternak Sapi Pangalengan', supplierLocation: 'Pangalengan, Jawa Barat', currentStock: 210, minStockThreshold: 150, image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=600&auto=format&fit=crop&q=80', description: 'Susu sapi murni dipasteurisasi kilat, menjaga kalsium dan vitamin D alami.', gradeGizi: 'Susu Segar Murni MBG' }
+    ];
+
+    const INITIAL_ORDERS = [
+      { id: 'ord-101', orderNumber: 'MBG-PO-2026-001', kitchenName: 'Dapur Sentral SPPG MBG Kec. Cibinong 01', kitchenContact: '0812-9876-5432 (Ibu Ratna)', deliveryDate: '2026-11-03', targetPortions: 1500, items: [{ productName: 'Beras Ramos Super Premium Cianjur', unit: 'kg', quantity: 150, unitPrice: 15000, subtotal: 2250000, supplierName: 'Gapoktan Makmur Subang Sejahtera' }, { productName: 'Dada Ayam Fillet Segar MBG', unit: 'kg', quantity: 75, unitPrice: 38500, subtotal: 2887500, supplierName: 'Peternakan Unggas Berkah Parung' }], totalAmount: 5137500, status: 'selesai', notes: 'Pengiriman pagi 05:00 WIB', createdAt: '2026-11-01T14:30:00Z' }
+    ];
+
+    const INITIAL_TRANSACTIONS = [
+      { id: 'trx-1', date: '2026-11-01', type: 'pemasukan', category: 'Penjualan Dapur MBG', amount: 5137500, description: 'Pelunasan Pesanan MBG-PO-2026-001 Dapur Sentral SPPG Cibinong 01', invoiceNo: 'INV/KOP-MBG/2026/001', paymentMethod: 'Transfer Bank Koperasi' },
+      { id: 'trx-2', date: '2026-11-01', type: 'pengeluaran', category: 'Belanja Supplier', amount: 3840000, description: 'PO Pengadaan Beras Ramos 300kg ke Gapoktan Makmur Subang', invoiceNo: 'PO-SUP/089', paymentMethod: 'Transfer Bank Koperasi' },
+      { id: 'trx-3', date: '2026-11-02', type: 'pengeluaran', category: 'Logistik Armada', amount: 450000, description: 'BBM Truk Pendingin Armada Distribusi Dapur MBG Cluster 1', invoiceNo: 'BBM-11-02', paymentMethod: 'Kas Tunai' }
+    ];
+
+    function App() {
+      // User Auth
+      const [currentUser, setCurrentUser] = useState(() => {
+        const s = localStorage.getItem('standalone_mbg_user');
+        return s ? JSON.parse(s) : null;
+      });
+
+      // Cooperative Profile
+      const [coopProfile, setCoopProfile] = useState(() => {
+        const s = localStorage.getItem('standalone_mbg_coop');
+        return s ? JSON.parse(s) : {
+          name: 'Koperasi Pemasaran Haadza Minfadly Rabbi',
+          subtitle: 'Pemasok Resmi Bahan Pokok Dapur Program MBG & SPPG',
+          legalNumber: 'Badan Hukum No. AHU-0019284.AH.01.26',
+          address: 'Sentra Pergudangan & Distribusi Logistik Pangan MBG',
+          phone: '0812-8872-9900',
+          email: 'kontak@haadzaminfadly.id'
+        };
+      });
+
+      const [products, setProducts] = useState(() => {
+        const s = localStorage.getItem('standalone_mbg_products');
+        return s ? JSON.parse(s) : INITIAL_PRODUCTS;
+      });
+
+      const [orders, setOrders] = useState(() => {
+        const s = localStorage.getItem('standalone_mbg_orders');
+        return s ? JSON.parse(s) : INITIAL_ORDERS;
+      });
+
+      const [transactions, setTransactions] = useState(() => {
+        const s = localStorage.getItem('standalone_mbg_transactions');
+        return s ? JSON.parse(s) : INITIAL_TRANSACTIONS;
+      });
+
+      const [cart, setCart] = useState([]);
+      const [activeTab, setActiveTab] = useState('marketplace');
+      const [cartOpen, setCartOpen] = useState(false);
+      const [stockModalProd, setStockModalProd] = useState(null);
+      const [selectedInvoice, setSelectedInvoice] = useState(null);
+
+      // Quantities for marketplace order
+      const [quantities, setQuantities] = useState({});
+
+      useEffect(() => { localStorage.setItem('standalone_mbg_user', JSON.stringify(currentUser)); }, [currentUser]);
+      useEffect(() => { localStorage.setItem('standalone_mbg_coop', JSON.stringify(coopProfile)); }, [coopProfile]);
+      useEffect(() => { localStorage.setItem('standalone_mbg_products', JSON.stringify(products)); }, [products]);
+      useEffect(() => { localStorage.setItem('standalone_mbg_orders', JSON.stringify(orders)); }, [orders]);
+      useEffect(() => { localStorage.setItem('standalone_mbg_transactions', JSON.stringify(transactions)); }, [transactions]);
+
+      const isKoperasi = currentUser?.role === 'koperasi';
+      const isDapur = currentUser?.role === 'dapur';
+
+      // Login handler
+      const handleLogin = (role, kitchen = '', name = '', mail = '', phone = '') => {
+        const u = {
+          role,
+          name: name || (role === 'dapur' ? 'Ibu Ratna (Ka. Dapur)' : 'Ahmad Fauzi (Pengurus)'),
+          email: mail || (role === 'dapur' ? 'dapur.cibinong@mbg.id' : 'admin@haadzaminfadly.id'),
+          kitchenName: kitchen || 'Dapur Sentral SPPG MBG Kec. Cibinong 01',
+          kitchenContact: phone || '0812-9876-5432'
+        };
+        setCurrentUser(u);
+        setActiveTab('marketplace');
+      };
+
+      const handleLogout = () => {
+        setCurrentUser(null);
+        setCart([]);
+      };
+
+      // Add to cart
+      const addToCart = (product, qty = 10) => {
+        setCart(prev => {
+          const ex = prev.find(i => i.product.id === product.id);
+          if (ex) return prev.map(i => i.product.id === product.id ? { ...i, quantity: i.quantity + qty } : i);
+          return [...prev, { product, quantity: qty }];
+        });
+        setCartOpen(true);
+      };
+
+      const cartTotal = cart.reduce((sum, i) => sum + (i.product.sellingPrice * i.quantity), 0);
+
+      // Create Order
+      const handleCreateOrder = (e) => {
+        e.preventDefault();
+        if (cart.length === 0) return;
+        const newOrder = {
+          id: 'ord-' + Date.now(),
+          orderNumber: 'MBG-PO-' + new Date().getFullYear() + '-' + String(orders.length + 1).padStart(3, '0'),
+          kitchenName: currentUser.kitchenName || 'Dapur Sentral SPPG Cibinong',
+          kitchenContact: currentUser.kitchenContact || '0812-9876-5432',
+          deliveryDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+          targetPortions: 1500,
+          items: cart.map(i => ({
+            productName: i.product.name,
+            unit: i.product.unit,
+            quantity: i.quantity,
+            unitPrice: i.product.sellingPrice,
+            subtotal: i.product.sellingPrice * i.quantity,
+            supplierName: i.product.supplierName
+          })),
+          totalAmount: cartTotal,
+          status: 'diproses',
+          notes: 'Pengiriman sarapan & makan siang bergizi',
+          createdAt: new Date().toISOString()
+        };
+
+        // Reduce stock
+        setProducts(prev => prev.map(p => {
+          const match = cart.find(c => c.product.id === p.id);
+          return match ? { ...p, currentStock: Math.max(0, p.currentStock - match.quantity) } : p;
+        }));
+
+        setOrders([newOrder, ...orders]);
+        setCart([]);
+        setCartOpen(false);
+        setActiveTab('orders');
+      };
+
+      // Update Order Status (Koperasi)
+      const handleStatusChange = (orderId, newStatus) => {
+        setOrders(prev => prev.map(o => {
+          if (o.id === orderId) {
+            if (newStatus === 'selesai' && o.status !== 'selesai') {
+              // Auto record revenue
+              const newTrx = {
+                id: 'trx-' + Date.now(),
+                date: new Date().toISOString().split('T')[0],
+                type: 'pemasukan',
+                category: 'Penjualan Dapur MBG',
+                amount: o.totalAmount,
+                description: 'Pelunasan Pesanan ' + o.orderNumber + ' (' + o.kitchenName + ')',
+                invoiceNo: 'INV/KOP-MBG/' + o.orderNumber,
+                paymentMethod: 'Transfer Bank Koperasi'
+              };
+              setTransactions(t => [newTrx, ...t]);
+            }
+            return { ...o, status: newStatus };
+          }
+          return o;
+        }));
+      };
+
+      // Stock update (Stock Opname)
+      const handleUpdateStockSubmit = (productId, newStock, newMin) => {
+        setProducts(prev => prev.map(p => p.id === productId ? { ...p, currentStock: newStock, minStockThreshold: newMin } : p));
+        setStockModalProd(null);
+      };
+
+      // Financial Metrics
+      const totalIncome = transactions.filter(t => t.type === 'pemasukan').reduce((s, t) => s + t.amount, 0);
+      const totalExpense = transactions.filter(t => t.type === 'pengeluaran').reduce((s, t) => s + t.amount, 0);
+      const netProfit = totalIncome - totalExpense;
+      const inventoryValuation = products.reduce((s, p) => s + (p.currentStock * p.purchasePrice), 0);
+
+      // 1. IF NOT LOGGED IN: SHOW LOGIN PAGE
+      if (!currentUser) {
+        return (
+          <div className="min-h-screen bg-slate-100 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
+            <div className="sm:mx-auto sm:w-full sm:max-w-md text-center space-y-2">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mx-auto text-2xl font-bold shadow-md">
+                🌱
+              </div>
+              <h1 className="text-2xl font-extrabold text-slate-900">{coopProfile.name}</h1>
+              <p className="text-xs text-slate-600">Portal Sistem Pemesanan Bahan Pokok Dapur Makan Bergizi Gratis (MBG)</p>
+              <span className="inline-block px-3 py-1 bg-emerald-50 text-emerald-800 text-xs font-semibold rounded-full border border-emerald-200">
+                🔒 Wajib Login Sebelum Mengakses Transaksi Jual Beli
+              </span>
+            </div>
+
+            <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md">
+              <div className="bg-white py-8 px-6 shadow-xl rounded-2xl border border-slate-200 sm:px-10 space-y-6">
+                <div className="text-center">
+                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Pilih Alur Masuk:</h3>
+                </div>
+
+                <div className="space-y-3">
+                  {/* Alur 1: Dapur MBG */}
+                  <div className="p-4 rounded-xl border-2 border-emerald-500/30 bg-emerald-50/50 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <strong className="text-sm text-emerald-950 font-bold flex items-center gap-1.5">
+                        🍳 Alur 1: Pihak Dapur MBG
+                      </strong>
+                      <span className="text-[10px] font-semibold text-emerald-700 bg-white px-2 py-0.5 rounded border border-emerald-200">Pemesan</span>
+                    </div>
+                    <p className="text-xs text-slate-600">Katalog bahan pokok resmi, pesan pasokan harian, dan pantau status surat jalan.</p>
+                    <button
+                      onClick={() => handleLogin('dapur', 'Dapur Sentral SPPG MBG Kec. Cibinong 01', 'Ibu Ratna (Ka. Dapur)', 'dapur.cibinong@mbg.id', '0812-9876-5432')}
+                      className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-xs transition-colors flex items-center justify-center gap-1"
+                    >
+                      Masuk Sebagai Dapur MBG →
+                    </button>
+                  </div>
+
+                  {/* Alur 2: Koperasi */}
+                  <div className="p-4 rounded-xl border-2 border-blue-500/30 bg-blue-50/50 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <strong className="text-sm text-blue-950 font-bold flex items-center gap-1.5">
+                        🏢 Alur 2: Pihak Koperasi
+                      </strong>
+                      <span className="text-[10px] font-semibold text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200">Pengurus</span>
+                    </div>
+                    <p className="text-xs text-slate-600">Kelola stok gudang, stock opname, restock supplier, buku kas, dan laporan keuangan.</p>
+                    <button
+                      onClick={() => handleLogin('koperasi', '', 'Ahmad Fauzi (Manajer Koperasi)', 'admin@haadzaminfadly.id', '0812-8872-9900')}
+                      className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-xs transition-colors flex items-center justify-center gap-1"
+                    >
+                      Masuk Sebagai Pengurus Koperasi →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // 2. MAIN LOGGED-IN VIEW
+      return (
+        <div className="min-h-screen bg-slate-100 flex flex-col">
+          {/* Header Navbar */}
+          <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-xs print:hidden">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-lg">
+                  🌱
+                </div>
+                <div>
+                  <span className="text-sm sm:text-base font-bold text-slate-900 block leading-tight">
+                    {coopProfile.name}
+                  </span>
+                  <span className="text-[11px] text-emerald-800 font-medium block leading-tight">
+                    {coopProfile.subtitle}
+                  </span>
+                </div>
+              </div>
+
+              {/* Navigation links based on role */}
+              <nav className="hidden md:flex items-center gap-2 text-xs font-medium">
+                <button
+                  onClick={() => setActiveTab('marketplace')}
+                  className={`px-3 py-1.5 rounded-md ${activeTab === 'marketplace' ? 'bg-emerald-50 text-emerald-700 font-bold' : 'text-slate-600 hover:bg-slate-50'}`}
+                >
+                  Katalog Pemesanan MBG
+                </button>
+                <button
+                  onClick={() => setActiveTab('orders')}
+                  className={`px-3 py-1.5 rounded-md ${activeTab === 'orders' ? 'bg-emerald-50 text-emerald-700 font-bold' : 'text-slate-600 hover:bg-slate-50'}`}
+                >
+                  {isDapur ? 'Pesanan Dapur Saya' : 'Pesanan Dapur MBG'}
+                </button>
+                {isKoperasi && (
+                  <>
+                    <button
+                      onClick={() => setActiveTab('inventory')}
+                      className={`px-3 py-1.5 rounded-md ${activeTab === 'inventory' ? 'bg-emerald-50 text-emerald-700 font-bold' : 'text-slate-600 hover:bg-slate-50'}`}
+                    >
+                      Stok Koperasi
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('finance')}
+                      className={`px-3 py-1.5 rounded-md ${activeTab === 'finance' ? 'bg-emerald-50 text-emerald-700 font-bold' : 'text-slate-600 hover:bg-slate-50'}`}
+                    >
+                      Buku Kas
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('reports')}
+                      className={`px-3 py-1.5 rounded-md ${activeTab === 'reports' ? 'bg-emerald-50 text-emerald-700 font-bold' : 'text-slate-600 hover:bg-slate-50'}`}
+                    >
+                      Laporan Keuangan
+                    </button>
+                  </>
+                )}
+              </nav>
+
+              {/* User badge, Cart & Logout */}
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] px-2.5 py-1 bg-slate-100 rounded-lg text-slate-700 font-bold border border-slate-200">
+                  {isDapur ? '🍳 ' + currentUser.name : '🏢 ' + currentUser.name}
+                </span>
+
+                <button
+                  onClick={() => setCartOpen(true)}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs"
+                >
+                  <span>Keranjang</span>
+                  {cart.length > 0 && <span className="bg-emerald-800 px-1.5 rounded text-[10px]">{cart.length}</span>}
+                </button>
+
+                <button
+                  onClick={handleLogout}
+                  className="px-2.5 py-1.5 text-red-600 hover:bg-red-50 border border-red-200 rounded-lg text-xs font-semibold"
+                >
+                  Keluar
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* Main Body */}
+          <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 flex-1">
+            {/* VIEW 1: MARKETPLACE */}
+            {activeTab === 'marketplace' && (
+              <div className="space-y-6">
+                <div className="p-6 bg-gradient-to-r from-emerald-900 to-slate-900 text-white rounded-2xl shadow-sm space-y-2">
+                  <span className="text-xs font-bold text-emerald-400 bg-emerald-950/80 px-2.5 py-0.5 rounded border border-emerald-500/30">
+                    Pasokan Terstandarisasi Dapur MBG
+                  </span>
+                  <h2 className="text-2xl font-black">Katalog Pemesanan Bahan Pokok MBG</h2>
+                  <p className="text-xs text-slate-300 max-w-xl">
+                    Pilihan bahan pangan pokok berkualitas untuk Dapur Sentral Makan Bergizi Gratis langsung dari kelompok tani, peternak, dan nelayan binaan koperasi.
+                  </p>
+                </div>
+
+                {/* Product Grid without supplier purchase price, without margin, without safety threshold */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {products.map(product => {
+                    const qty = quantities[product.id] || 10;
+                    const isOut = product.currentStock <= 0;
+
+                    return (
+                      <div key={product.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs flex flex-col justify-between">
+                        <div>
+                          <div className="relative h-44 bg-slate-100 overflow-hidden">
+                            <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                            <div className="absolute top-2 left-2 bg-white/95 text-slate-800 text-[10px] font-bold px-2 py-0.5 rounded shadow-xs">
+                              {product.gradeGizi}
+                            </div>
+                            {isOut && (
+                              <div className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                                Stok Habis
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="p-4 space-y-3">
+                            <div>
+                              <span className="text-[10px] uppercase font-bold text-emerald-700">{product.category.replace('_', ' & ')}</span>
+                              <h3 className="font-bold text-slate-900 text-sm mt-0.5">{product.name}</h3>
+                              <p className="text-xs text-slate-500 mt-1 line-clamp-2">{product.description}</p>
+                            </div>
+
+                            {/* Clean Pricing and Supplier Display (No Margin, No Supplier Purchase Cost, No Safety Threshold) */}
+                            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2 text-xs">
+                              <div className="flex justify-between items-baseline">
+                                <span className="text-slate-600">Harga Dapur MBG:</span>
+                                <strong className="text-base font-extrabold text-emerald-700 tabular-nums">
+                                  {formatRupiah(product.sellingPrice)} <span className="text-xs text-slate-500 font-normal">/{product.unit}</span>
+                                </strong>
+                              </div>
+                              <div className="pt-2 border-t border-slate-200 text-[11px] text-slate-600 flex justify-between items-start">
+                                <div>
+                                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Supplier Penyedia:</span>
+                                  <strong className="text-slate-800 block">{product.supplierName}</strong>
+                                  <span className="text-slate-400">{product.supplierLocation}</span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Ketersediaan:</span>
+                                  <span className={`font-bold ${isOut ? 'text-red-600' : 'text-emerald-700'}`}>
+                                    {isOut ? 'Habis' : 'Tersedia'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Order stepper */}
+                        <div className="p-4 pt-0">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="1"
+                              value={qty}
+                              onChange={(e) => setQuantities({ ...quantities, [product.id]: Math.max(1, parseInt(e.target.value) || 1) })}
+                              className="w-16 px-2 py-1.5 text-center text-xs font-bold border border-slate-300 rounded-lg"
+                            />
+                            <button
+                              disabled={isOut}
+                              onClick={() => addToCart(product, qty)}
+                              className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold text-white shadow-2xs ${isOut ? 'bg-slate-300 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                            >
+                              + Pesan ({formatRupiah(product.sellingPrice * qty)})
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* VIEW 2: ORDERS */}
+            {activeTab === 'orders' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                  <h2 className="text-xl font-bold text-slate-900">
+                    {isDapur ? 'Riwayat Pesanan Dapur MBG Saya' : 'Daftar Pesanan Masuk Seluruh Dapur MBG'}
+                  </h2>
+                  <button onClick={() => setActiveTab('marketplace')} className="text-xs font-bold text-emerald-600 hover:underline">
+                    + Buat Pesanan Baru
+                  </button>
+                </div>
+
+                {orders.map(order => (
+                  <div key={order.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+                    <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                      <div>
+                        <span className="font-mono text-xs font-bold text-slate-900">{order.orderNumber}</span>
+                        <h4 className="font-bold text-sm text-slate-800">{order.kitchenName}</h4>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded ${order.status === 'selesai' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'}`}>
+                          {order.status.toUpperCase()}
+                        </span>
+                        <button
+                          onClick={() => setSelectedInvoice(order)}
+                          className="px-2.5 py-1 text-xs font-semibold text-slate-700 border border-slate-300 rounded hover:bg-slate-50"
+                        >
+                          Surat Jalan & Faktur
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="text-xs text-slate-600 flex flex-wrap gap-4">
+                      <span>Jadwal Kirim: <strong>{formatDate(order.deliveryDate)}</strong></span>
+                      <span>Target: <strong>{order.targetPortions} Porsi</strong></span>
+                      <span>Total Tagihan: <strong className="text-emerald-700">{formatRupiah(order.totalAmount)}</strong></span>
+                    </div>
+
+                    {/* Koperasi controls */}
+                    {isKoperasi && order.status !== 'selesai' && (
+                      <div className="pt-2 border-t border-slate-100 flex justify-end gap-2">
+                        {order.status === 'diproses' && (
+                          <button
+                            onClick={() => handleStatusChange(order.id, 'dikirim')}
+                            className="px-3 py-1 bg-purple-600 text-white rounded text-xs font-bold"
+                          >
+                            Kirim Armada Truk Pendingin
+                          </button>
+                        )}
+                        {order.status === 'dikirim' && (
+                          <button
+                            onClick={() => handleStatusChange(order.id, 'selesai')}
+                            className="px-3 py-1 bg-emerald-600 text-white rounded text-xs font-bold"
+                          >
+                            Konfirmasi Diterima Dapur (Selesai & Catat Kas)
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* VIEW 3: INVENTORY (KOPERASI ONLY) */}
+            {isKoperasi && activeTab === 'inventory' && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900">Manajemen Stok & Gudang Koperasi</h2>
+                    <p className="text-xs text-slate-500">Valuasi Persediaan Aset: <strong>{formatRupiah(inventoryValuation)}</strong></p>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-2xs">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                        <th className="py-2.5 px-3">Komoditas Bahan</th>
+                        <th className="py-2.5 px-3 text-right">Stok Fisik</th>
+                        <th className="py-2.5 px-3 text-right">Batas Min (Safety)</th>
+                        <th className="py-2.5 px-3 text-right">Harga Modal Beli</th>
+                        <th className="py-2.5 px-3 text-right">Harga Jual Dapur</th>
+                        <th className="py-2.5 px-3 text-center">Aksi Operasional</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {products.map(p => (
+                        <tr key={p.id} className="hover:bg-slate-50">
+                          <td className="py-2.5 px-3 font-bold text-slate-900">{p.name}</td>
+                          <td className="py-2.5 px-3 text-right font-extrabold text-slate-800">{p.currentStock} {p.unit}</td>
+                          <td className="py-2.5 px-3 text-right text-slate-500">{p.minStockThreshold} {p.unit}</td>
+                          <td className="py-2.5 px-3 text-right text-slate-600">{formatRupiah(p.purchasePrice)}</td>
+                          <td className="py-2.5 px-3 text-right font-bold text-emerald-700">{formatRupiah(p.sellingPrice)}</td>
+                          <td className="py-2.5 px-3 text-center">
+                            <button
+                              onClick={() => setStockModalProd(p)}
+                              className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-bold"
+                            >
+                              Update Stok
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* VIEW 4: FINANCE & BUKU KAS (KOPERASI ONLY) */}
+            {isKoperasi && activeTab === 'finance' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="p-4 bg-white rounded-xl border border-slate-200">
+                    <span className="text-xs text-slate-500">Total Pemasukan Kas</span>
+                    <p className="text-xl font-bold text-emerald-700">+{formatRupiah(totalIncome)}</p>
+                  </div>
+                  <div className="p-4 bg-white rounded-xl border border-slate-200">
+                    <span className="text-xs text-slate-500">Total Pengeluaran Kas</span>
+                    <p className="text-xl font-bold text-red-700">-{formatRupiah(totalExpense)}</p>
+                  </div>
+                  <div className="p-4 bg-white rounded-xl border border-slate-200">
+                    <span className="text-xs text-slate-500">Saldo Kas Berjalan</span>
+                    <p className="text-xl font-bold text-slate-900">{formatRupiah(netProfit)}</p>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-2xs">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                        <th className="py-2.5 px-3">Tanggal</th>
+                        <th className="py-2.5 px-3">Arus Kas</th>
+                        <th className="py-2.5 px-3">Kategori</th>
+                        <th className="py-2.5 px-3">Keterangan</th>
+                        <th className="py-2.5 px-3 text-right">Nominal</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {transactions.map(t => (
+                        <tr key={t.id} className="hover:bg-slate-50">
+                          <td className="py-2.5 px-3 text-slate-500">{t.date}</td>
+                          <td className="py-2.5 px-3 font-bold">
+                            <span className={`px-2 py-0.5 rounded text-[10px] ${t.type === 'pemasukan' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                              {t.type.toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-700">{t.category}</td>
+                          <td className="py-2.5 px-3 text-slate-900">{t.description}</td>
+                          <td className="py-2.5 px-3 text-right font-bold tabular-nums">
+                            {t.type === 'pemasukan' ? '+' : '-'} {formatRupiah(t.amount)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* VIEW 5: LAPORAN KEUANGAN LABA RUGI (KOPERASI ONLY) */}
+            {isKoperasi && activeTab === 'reports' && (
+              <div className="space-y-4">
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-2xs space-y-4">
+                  <div className="border-b-2 border-emerald-700 pb-3">
+                    <h3 className="text-base font-bold text-slate-900 uppercase">{coopProfile.name}</h3>
+                    <p className="text-xs text-slate-500">Laporan Keuangan & Perhitungan Hasil Usaha (Laba Rugi) Real-Time</p>
+                  </div>
+
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between py-1 border-b">
+                      <span className="font-bold">I. Total Pendapatan Penjualan MBG</span>
+                      <strong className="text-emerald-700">{formatRupiah(totalIncome)}</strong>
+                    </div>
+                    <div className="flex justify-between py-1 border-b">
+                      <span className="font-bold">II. Beban Pokok Penjualan (HPP Belanja Supplier)</span>
+                      <strong className="text-slate-800">({formatRupiah(transactions.filter(t => t.category === 'Belanja Supplier').reduce((s,t) => s + t.amount, 0))})</strong>
+                    </div>
+                    <div className="flex justify-between py-1.5 bg-slate-50 px-2 rounded font-bold">
+                      <span>Laba Kotor Operasional</span>
+                      <span className="text-emerald-800">{formatRupiah(totalIncome - transactions.filter(t => t.category === 'Belanja Supplier').reduce((s,t) => s + t.amount, 0))}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b">
+                      <span className="font-bold">III. Beban Operasional Logistik & Lainnya</span>
+                      <strong className="text-red-700">({formatRupiah(transactions.filter(t => t.category !== 'Belanja Supplier' && t.type === 'pengeluaran').reduce((s,t) => s + t.amount, 0))})</strong>
+                    </div>
+                    <div className="flex justify-between py-3 bg-emerald-50 px-3 rounded-lg text-sm font-extrabold text-emerald-950">
+                      <span>SISA HASIL USAHA (SHU / LABA BERSIH)</span>
+                      <span>{formatRupiah(netProfit)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </main>
+
+          {/* Cart Drawer */}
+          {cartOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-900/50 flex justify-end">
+              <div className="w-full max-w-md bg-white h-full p-6 flex flex-col justify-between shadow-2xl">
+                <div>
+                  <div className="flex justify-between items-center border-b pb-3">
+                    <h3 className="font-bold text-slate-900">Keranjang Pemesanan MBG</h3>
+                    <button onClick={() => setCartOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
+                  </div>
+
+                  <div className="py-4 space-y-2 max-h-[60vh] overflow-y-auto text-xs">
+                    {cart.map(item => (
+                      <div key={item.product.id} className="p-2.5 bg-slate-50 rounded border flex justify-between items-center">
+                        <div>
+                          <strong className="text-slate-900 block">{item.product.name}</strong>
+                          <span className="text-slate-500">{item.quantity} {item.product.unit} × {formatRupiah(item.product.sellingPrice)}</span>
+                        </div>
+                        <strong className="text-emerald-700">{formatRupiah(item.product.sellingPrice * item.quantity)}</strong>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="border-t pt-4 space-y-3">
+                  <div className="flex justify-between text-sm font-bold">
+                    <span>Total Tagihan:</span>
+                    <span className="text-emerald-700">{formatRupiah(cartTotal)}</span>
+                  </div>
+                  <button
+                    onClick={handleCreateOrder}
+                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-xs"
+                  >
+                    Kirim Pesanan Bahan Pokok →
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Update Stock Modal */}
+          {stockModalProd && (
+            <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-xl p-6 max-w-sm w-full space-y-4">
+                <h3 className="font-bold text-sm text-slate-900">Update Stok: {stockModalProd.name}</h3>
+                <div className="space-y-2 text-xs">
+                  <label className="block text-slate-600">Stok Fisik Baru ({stockModalProd.unit}):</label>
+                  <input
+                    type="number"
+                    defaultValue={stockModalProd.currentStock}
+                    id="newStockInput"
+                    className="w-full px-3 py-2 border rounded-lg font-bold"
+                  />
+                  <label className="block text-slate-600">Batas Min Safety Stock:</label>
+                  <input
+                    type="number"
+                    defaultValue={stockModalProd.minStockThreshold}
+                    id="newMinInput"
+                    className="w-full px-3 py-2 border rounded-lg font-bold"
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button onClick={() => setStockModalProd(null)} className="px-3 py-1.5 text-xs text-slate-600">Batal</button>
+                  <button
+                    onClick={() => {
+                      const s = parseInt(document.getElementById('newStockInput').value) || 0;
+                      const m = parseInt(document.getElementById('newMinInput').value) || 1;
+                      handleUpdateStockSubmit(stockModalProd.id, s, m);
+                    }}
+                    className="px-4 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg"
+                  >
+                    Simpan Stok
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Invoice Modal */}
+          {selectedInvoice && (
+            <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-xl p-6 max-w-lg w-full space-y-4 max-h-[85vh] overflow-y-auto">
+                <div className="flex justify-between items-start border-b pb-3">
+                  <div>
+                    <h3 className="font-bold text-slate-900">{coopProfile.name}</h3>
+                    <span className="text-[10px] text-slate-500">SURAT JALAN & FAKTUR RESMI</span>
+                  </div>
+                  <button onClick={() => setSelectedInvoice(null)} className="text-slate-400 hover:text-slate-600">✕</button>
+                </div>
+
+                <div className="text-xs space-y-2">
+                  <p>No. PO: <strong>{selectedInvoice.orderNumber}</strong></p>
+                  <p>Tujuan: <strong>{selectedInvoice.kitchenName}</strong></p>
+                  <p>Tgl Kirim: <strong>{selectedInvoice.deliveryDate}</strong></p>
+                  <table className="w-full text-left border mt-2">
+                    <thead><tr className="bg-slate-50 border-b"><th className="p-1.5">Bahan</th><th className="p-1.5 text-right">Vol</th><th className="p-1.5 text-right">Subtotal</th></tr></thead>
+                    <tbody>
+                      {selectedInvoice.items.map((i, idx) => (
+                        <tr key={idx} className="border-b"><td className="p-1.5">{i.productName}</td><td className="p-1.5 text-right">{i.quantity} {i.unit}</td><td className="p-1.5 text-right">{formatRupiah(i.subtotal)}</td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="text-right font-bold text-sm pt-2">Total: {formatRupiah(selectedInvoice.totalAmount)}</div>
+                </div>
+
+                <button onClick={() => window.print()} className="w-full py-2 bg-emerald-600 text-white text-xs font-bold rounded">
+                  Cetak Dokumen
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Footer */}
+          <footer className="bg-white border-t py-6 px-4 text-center text-xs text-slate-500">
+            {coopProfile.name} · {coopProfile.subtitle}
+          </footer>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

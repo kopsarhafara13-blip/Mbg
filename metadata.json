@@ -1,0 +1,6 @@
+{
+  "name": "Koperasi Pangan MBG",
+  "description": "Platform marketplace pemesanan bahan pokok dapur MBG, manajemen stok real-time, pencatatan kas, dan laporan keuangan koperasi otomatis.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
